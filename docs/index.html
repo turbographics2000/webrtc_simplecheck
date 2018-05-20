@@ -1,0 +1,188 @@
+import { EventEmitter } from "./eventemitter.js";
+
+class log {
+    /**
+     * Bestow logging powers.
+     *
+     * @exports mixinLog as Twilio.mixinLog
+     * @memberOf Twilio
+     *
+     * @param {object} object The object to bestow logging powers to
+     * @param {string} [prefix] Prefix log messages with this
+     *
+     * @return {object} Return the object passed in
+     */
+    static mixinLog(object, prefix) {
+        /**
+         * Logs a message or object.
+         *
+         * <p>There are a few options available for the log mixin. Imagine an object
+         * <code>foo</code> with this function mixed in:</p>
+         *
+         * <pre><code>var foo = {};
+         * Twilio.mixinLog(foo);
+         *
+         * </code></pre>
+         *
+         * <p>To enable or disable the log: <code>foo.log.enabled = true</code></p>
+         *
+         * <p>To modify the prefix: <code>foo.log.prefix = 'Hello'</code></p>
+         *
+         * <p>To use a custom callback instead of <code>console.log</code>:
+         * <code>foo.log.handler = function() { ... };</code></p>
+         *
+         * @param *args Messages or objects to be logged
+         */
+        class logger {
+            constructor() {
+                this.enabled = true;
+                this.prefix = prefix || '';
+                this.warnings = true;
+                this.log = (...args) => {
+                    if (!this.enabled) {
+                        return;
+                    }
+                    const format = this.prefix ? `${this.prefix} ` : '';
+                    args.forEach(arg => this.handler(typeof arg === 'string' ? `${format}${arg}` : arg));
+                };
+                this.handler = this.defaultHandler = _ => {
+                    // eslint-disable-next-line no-console
+                    if (typeof console !== 'undefined') {
+                        console.log(x);
+                    }
+                };
+                this.warnHandler = this.defaultWarnHandler = x => {
+                    /* eslint-disable no-console */
+                    if (typeof console !== 'undefined') {
+                        if (typeof console.warn === 'function') {
+                            console.warn(x);
+                        } else if (typeof console.log === 'function') {
+                            console.log(x);
+                        }
+                    }
+                    /* eslint-enable no-console */
+                };
+                this.deprecated = (...args) => {
+                    if (!log.warnings) {
+                        return;
+                    }
+                    args.forEach(arg => log.warnHandler(arg));
+                };
+            }
+        }
+        object.logger = new logger();
+    }
+}
+
+export class AudioHelper extends EventEmitter {
+    constructor(onActiveOutputsChanged, onActiveInputChanged, getUserMedia, options) {
+        options = {
+            ...options, ...{
+                AudioContext: typeof AudioContext !== 'undefined' && AudioContext,
+                mediaDevices: defaultMediaDevices,
+                setSinkId: typeof HTMLAudioElement !== 'undefined' && HTMLAudioElement.prototype.setSinkId
+            }
+        };
+        log.mixinLog(this, '[AudioHelper]');
+        this.logger.enabled = options.logEnabled;
+        this.logger.warnings = options.logWarnings;
+        const availableInputDevices = new Map();
+        const availableOutputDevices = new Map();
+        const isAudioContextSupported = !!(options.AudioContext || options.audioContext);
+        const mediaDevices = options.mediaDevices;
+        const isEnumerationSupported = mediaDevices && mediaDevices.enumerateDevices || false;
+        const isSetSinkSupported = typeof options.setSinkId === 'function';
+        const isOutputSelectionSupported = isEnumerationSupported && isSetSinkSupported;
+        const isVolumeSupported = isAudioContextSupported;
+        if (options.soundOptions) {
+            addOptionsToAudioHelper(this, options.soundOptions);
+        }
+        const audioContext = null;
+        const inputVolumeAnalyser = null;
+        if (isVolumeSupported) {
+            audioContext = options.audioContext || new options.AudioContext();
+            inputVolumeAnalyser = audioContext.createAnalyser();
+            inputVolumeAnalyser.fftSize = 32;
+            inputVolumeAnalyser.smoothingTimeConstant = 0.3;
+        }
+
+        Object.defineProperties(this, {
+            _audioContext: {
+                value: audioContext
+            },
+            _getUserMedia: {
+                value: getUserMedia
+            },
+            _inputDevice: {
+                value: null,
+                writable: true
+            },
+            _inputStream: {
+                value: null,
+                writable: true
+            },
+            _inputVolumeAnalyser: {
+                value: inputVolumeAnalyser
+            },
+            _isPollingInputVolume: {
+                value: false,
+                writable: true
+            },
+            _onActiveInputChanged: {
+                value: onActiveInputChanged
+            },
+            _mediaDevices: {
+                value: mediaDevices
+            },
+            _unknownDeviceIndexes: {
+                value: {}
+            },
+            _updateAvailableDevices: {
+                value: updateAvailableDevices.bind(null, this)
+            },
+            availableInputDevices: {
+                enumerable: true,
+                value: availableInputDevices
+            },
+            availableOutputDevices: {
+                enumerable: true,
+                value: availableOutputDevices
+            },
+            inputDevice: {
+                enumerable: true,
+                get: _ => {
+                    return this._inputDevice;
+                }
+            },
+            inputStream: {
+                enumerable: true,
+                get: _ => {
+                    return this._inputStream;
+                }
+            },
+            isVolumeSupported: {
+                enumerable: true,
+                value: isVolumeSupported
+            },
+            isOutputSelectionSupported: {
+                enumerable: true,
+                value: isOutputSelectionSupported
+            },
+            ringtoneDevices: {
+                enumerable: true,
+                value: new OutputDeviceCollection('ringtone', availableOutputDevices, onActiveOutputsChanged, isOutputSelectionSupported)
+            },
+            speakerDevices: {
+                enumerable: true,
+                value: new OutputDeviceCollection('speaker', availableOutputDevices, onActiveOutputsChanged, isOutputSelectionSupported)
+            }
+        });
+        this.on('newListener', eventName => {
+            if (eventName === 'inputVolume') {
+                this._maybeStartPollingVolume();
+            }
+        });
+        this.on('removeListener', )
+    }
+}
+
