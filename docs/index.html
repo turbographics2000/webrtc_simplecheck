@@ -1,188 +1,216 @@
-import { EventEmitter } from "./eventemitter.js";
+<!DOCTYPE html>
+<html lang="en">
 
-class log {
-    /**
-     * Bestow logging powers.
-     *
-     * @exports mixinLog as Twilio.mixinLog
-     * @memberOf Twilio
-     *
-     * @param {object} object The object to bestow logging powers to
-     * @param {string} [prefix] Prefix log messages with this
-     *
-     * @return {object} Return the object passed in
-     */
-    static mixinLog(object, prefix) {
-        /**
-         * Logs a message or object.
-         *
-         * <p>There are a few options available for the log mixin. Imagine an object
-         * <code>foo</code> with this function mixed in:</p>
-         *
-         * <pre><code>var foo = {};
-         * Twilio.mixinLog(foo);
-         *
-         * </code></pre>
-         *
-         * <p>To enable or disable the log: <code>foo.log.enabled = true</code></p>
-         *
-         * <p>To modify the prefix: <code>foo.log.prefix = 'Hello'</code></p>
-         *
-         * <p>To use a custom callback instead of <code>console.log</code>:
-         * <code>foo.log.handler = function() { ... };</code></p>
-         *
-         * @param *args Messages or objects to be logged
-         */
-        class logger {
-            constructor() {
-                this.enabled = true;
-                this.prefix = prefix || '';
-                this.warnings = true;
-                this.log = (...args) => {
-                    if (!this.enabled) {
-                        return;
-                    }
-                    const format = this.prefix ? `${this.prefix} ` : '';
-                    args.forEach(arg => this.handler(typeof arg === 'string' ? `${format}${arg}` : arg));
-                };
-                this.handler = this.defaultHandler = _ => {
-                    // eslint-disable-next-line no-console
-                    if (typeof console !== 'undefined') {
-                        console.log(x);
-                    }
-                };
-                this.warnHandler = this.defaultWarnHandler = x => {
-                    /* eslint-disable no-console */
-                    if (typeof console !== 'undefined') {
-                        if (typeof console.warn === 'function') {
-                            console.warn(x);
-                        } else if (typeof console.log === 'function') {
-                            console.log(x);
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        .check-item {
+            display: grid;
+            grid-template-columns: 350px 100px;
+            margin: 2px;
+            padding: 4px;
+        }
+
+        .true {
+            background: #8f8;
+        }
+
+        .false {
+            background: #f88;
+        }
+
+        .device-list {
+            margin: 10px 4px;
+            padding: 4px;
+        }
+
+        li {
+            padding: 4px;
+        }
+
+        .preview {
+            width: 300px;
+            height: 200px;
+            border: 1px solid;
+        }
+
+        #audioMeterContainer {
+            width: 300px;
+            height: 20px;
+            border: 1px solid;
+        }
+
+        #audioMeter {
+            height: 20px;
+            background: #8f8;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="supportMediaDevicesNamespace" class="check-item"></div>
+    <div id="supportGetUserMedia" class="check-item"></div>
+    <div id="supportSrcObject" class="check-item"></div>
+    <div id="supportWebRTCAPI" class="check-item"></div>
+    <div id="supportWebAudio" class="check-item"></div>
+    <div id="supportMediaStreamSource" class="check-item"></div>
+
+    <div class="device-list">
+        <div>ビデオキャプチャーデバイス</div>
+        <ul id="videoCaptureDeviceList"></ul>
+    </div>
+    <div class="device-list">
+        <div>オーディオキャプチャーデバイス</div>
+        <ul id="audioCaptureDeviceList"></ul>
+    </div>
+    <div id="videoContainer">
+        <video id="video" class="preview" playsinline muted autoplay controls></video>
+    </div>
+    <div id="audioContainer">
+        <audio id="audio" class="preview" playsinline autoplay controls></audio>
+        <div id="audioMeterContainer">
+            <div id="audioMeter"></div>
+        </div>
+    </div>
+
+    <script>
+
+        const isSupportMediaDevicesNamespace = 'mediaDevices' in navigator;
+        const isSupportWebRTC = typeof RTCPeerConnection === 'function';
+        const isSupportSrcObject = 'srcObject' in HTMLMediaElement.prototype;
+
+        const isSupportWebAudio = typeof AudioContext === 'function';
+        const isSupportMediaStreamSource = 'createMediaStreamSource' in AudioContext.prototype;
+
+        display(supportMediaDevicesNamespace, 'navigator.mediaDevices', isSupportMediaDevicesNamespace);
+        display(supportSrcObject, 'mediaElement.srcObject', isSupportSrcObject);
+        display(supportWebAudio, 'WebAuido API', isSupportWebAudio);
+        if (isSupportWebAudio) {
+            display(supportMediaStreamSource, 'WebAudio createMediaStreamSource', isSupportMediaStreamSource);
+        }
+        let enumerateDevices = false;
+        let gUM = null;
+        let ac = null;
+        let analyser = null;
+        if (isSupportWebAudio && isSupportMediaStreamSource) {
+            ac = new AudioContext();
+        }
+        display(supportWebRTCAPI, 'WebRTC API', isSupportWebRTC);
+
+        video.onclick = evt => video.play();
+        audio.onclick = evt => audio.play();
+
+        function check() {
+            captureDeviceCheck();
+        }
+        check();
+        function captureDeviceCheck() {
+            if (isSupportMediaDevicesNamespace) {
+                gUM = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+
+                if (gUM) {
+                    navigator.mediaDevices.enumerateDevices().then(devices => {
+                        const cameras = devices.filter(device => device.kind === 'videoinput');
+                        const mics = devices.filter(device => device.kind === 'audioinput');
+                        if (cameras.length) {
+                            videoCaptureDeviceList.parentElement.classList.add('true');
+                            cameras.forEach((camera, i) => {
+                                const listItem = document.createElement('li');
+                                listItem.textContent = camera.label || `camera-${i}`;
+                                videoCaptureDeviceList.appendChild(listItem);
+                            });
+                        } else {
+                            videoCaptureDeviceList.parentElement.classList.add('false');
+                            videoCaptureDeviceList.textContent = 'カメラ(ビデオキャプチャーデバイス)が検出されませんでした';
                         }
-                    }
-                    /* eslint-enable no-console */
-                };
-                this.deprecated = (...args) => {
-                    if (!log.warnings) {
-                        return;
-                    }
-                    args.forEach(arg => log.warnHandler(arg));
-                };
-            }
-        }
-        object.logger = new logger();
-    }
-}
-
-export class AudioHelper extends EventEmitter {
-    constructor(onActiveOutputsChanged, onActiveInputChanged, getUserMedia, options) {
-        options = {
-            ...options, ...{
-                AudioContext: typeof AudioContext !== 'undefined' && AudioContext,
-                mediaDevices: defaultMediaDevices,
-                setSinkId: typeof HTMLAudioElement !== 'undefined' && HTMLAudioElement.prototype.setSinkId
-            }
-        };
-        log.mixinLog(this, '[AudioHelper]');
-        this.logger.enabled = options.logEnabled;
-        this.logger.warnings = options.logWarnings;
-        const availableInputDevices = new Map();
-        const availableOutputDevices = new Map();
-        const isAudioContextSupported = !!(options.AudioContext || options.audioContext);
-        const mediaDevices = options.mediaDevices;
-        const isEnumerationSupported = mediaDevices && mediaDevices.enumerateDevices || false;
-        const isSetSinkSupported = typeof options.setSinkId === 'function';
-        const isOutputSelectionSupported = isEnumerationSupported && isSetSinkSupported;
-        const isVolumeSupported = isAudioContextSupported;
-        if (options.soundOptions) {
-            addOptionsToAudioHelper(this, options.soundOptions);
-        }
-        const audioContext = null;
-        const inputVolumeAnalyser = null;
-        if (isVolumeSupported) {
-            audioContext = options.audioContext || new options.AudioContext();
-            inputVolumeAnalyser = audioContext.createAnalyser();
-            inputVolumeAnalyser.fftSize = 32;
-            inputVolumeAnalyser.smoothingTimeConstant = 0.3;
-        }
-
-        Object.defineProperties(this, {
-            _audioContext: {
-                value: audioContext
-            },
-            _getUserMedia: {
-                value: getUserMedia
-            },
-            _inputDevice: {
-                value: null,
-                writable: true
-            },
-            _inputStream: {
-                value: null,
-                writable: true
-            },
-            _inputVolumeAnalyser: {
-                value: inputVolumeAnalyser
-            },
-            _isPollingInputVolume: {
-                value: false,
-                writable: true
-            },
-            _onActiveInputChanged: {
-                value: onActiveInputChanged
-            },
-            _mediaDevices: {
-                value: mediaDevices
-            },
-            _unknownDeviceIndexes: {
-                value: {}
-            },
-            _updateAvailableDevices: {
-                value: updateAvailableDevices.bind(null, this)
-            },
-            availableInputDevices: {
-                enumerable: true,
-                value: availableInputDevices
-            },
-            availableOutputDevices: {
-                enumerable: true,
-                value: availableOutputDevices
-            },
-            inputDevice: {
-                enumerable: true,
-                get: _ => {
-                    return this._inputDevice;
+                        if (mics.length) {
+                            audioCaptureDeviceList.parentElement.classList.add('true');
+                            mics.forEach((mic, i) => {
+                                const listItem = document.createElement('li');
+                                listItem.classList.add('device');
+                                listItem.textContent = mic.label || `audio-${i}`
+                                audioCaptureDeviceList.appendChild(listItem);
+                            });
+                        } else {
+                            audioCaptureDeviceList.parentElement.classList.add('false');
+                            audioCaptureDeviceList.textContent = 'デバイスなし';
+                        }
+                    }).then(gUMCheck);
+                } else {
+                    gUMCheck();
                 }
-            },
-            inputStream: {
-                enumerable: true,
-                get: _ => {
-                    return this._inputStream;
-                }
-            },
-            isVolumeSupported: {
-                enumerable: true,
-                value: isVolumeSupported
-            },
-            isOutputSelectionSupported: {
-                enumerable: true,
-                value: isOutputSelectionSupported
-            },
-            ringtoneDevices: {
-                enumerable: true,
-                value: new OutputDeviceCollection('ringtone', availableOutputDevices, onActiveOutputsChanged, isOutputSelectionSupported)
-            },
-            speakerDevices: {
-                enumerable: true,
-                value: new OutputDeviceCollection('speaker', availableOutputDevices, onActiveOutputsChanged, isOutputSelectionSupported)
+            } else {
+                haveGetUserMedia = 'getUserMedia' in navigator;
+                gUM = navigator.getUserMedia.bind(navigator);
+                gUMCheck();
             }
-        });
-        this.on('newListener', eventName => {
-            if (eventName === 'inputVolume') {
-                this._maybeStartPollingVolume();
-            }
-        });
-        this.on('removeListener', )
-    }
-}
 
+            function gUMCheck() {
+                display(supportGetUserMedia, 'getUserMedia()', !!gUM);
+                if (gUM) {
+                    gUM({ video: true, audio: false }).then(stream => {
+                        if (stream) {
+                            if (isSupportSrcObject) {
+                                video.srcObject = stream;
+                            } else {
+                                video.src = URL.createObjectURL(stream);
+                            }
+                        } else {
+                            videoConainer.textContent = 'ビデオストリーム取得エラー： stream is null';
+                        }
+                    }).catch(err => {
+                        videoContainer.textContent = 'ビデオストリーム取得エラー: ' + err.message;
+                    }).then(_ => {
+                        return gUM({ video: false, audio: true });
+                    }).then(stream => {
+                        if (stream) {
+                            if (isSupportWebAudio && isSupportMediaStreamSource) {
+                                const audioSource = ac.createMediaStreamSource(stream);
+                                analyser = ac.createAnalyser();
+                                analyser.fftSize = 32;
+                                analyser.smoothingTimeConstant = 0.3;
+                                analyser.getByteFrequencyData
+                                audioSource.connect(analyser);
+                                audioMeterRender();
+                            }
+                            if (isSupportSrcObject) {
+                                audio.srcObject = stream;
+                            } else {
+                                audio.src = URL.createObjectURL(stream);
+                            }
+                        } else {
+                            audioContainer.textContent = 'オーディオストリーム取得エラー: stream is null';
+                        }
+                    }).catch(err => {
+                        audioContainer.textContent = 'オーディオストリーム取得エラー： ' + err.message;
+                    });
+                }
+
+            }
+        }
+
+        function audioMeterRender() {
+            requestAnimationFrame(audioMeterRender);
+            const buffer = new Uint8Array(analyser.fftSize);
+            analyser.getByteFrequencyData(buffer);
+            let volume = (buffer.reduce((a, b) => a + b) / buffer.length) / 255;
+            audioMeter.style.width = (volume * 300) + 'px';
+        }
+
+        function display(container, labelText, val) {
+            container.classList.add(val);
+            const label = document.createElement('div');
+            label.classList.add('label');
+            label.textContent = labelText;
+            const result = document.createElement('div');
+            result.textContent = val ? '✔' : '✖';
+            container.appendChild(label);
+            container.appendChild(result);
+        }
+    </script>
+</body>
+
+</html>
