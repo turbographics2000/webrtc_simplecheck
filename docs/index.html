@@ -99,7 +99,7 @@
         display(supportSrcObject, 'mediaElement.srcObject', isSupportSrcObject);
         display(supportWebAudio, 'WebAuido API', isSupportWebAudio);
         if (isSupportWebAudio) {
-            display(supportMediaStreamSource, 'WebAudio createMediaStreamSource', isSupportMediaStreamSource);
+            display(supportMediaStreamSource, 'createMediaStreamSource', isSupportMediaStreamSource);
         }
         let enumerateDevices = false;
         let gUM = null;
@@ -218,8 +218,8 @@
             label.textContent = labelText;
             const result = document.createElement('div');
             result.textContent = val ? '✔' : '✖';
-            container.appendChild(label);
             container.appendChild(result);
+            container.appendChild(label);
         }
     </script>
 </body>
